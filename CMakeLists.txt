@@ -2,8 +2,10 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.15)
 
 project(libgit2java)
 
-if (CMAKE_HOST_APPLE)
+if (APPLE)
     set(JNI_MD ${PROJECT_SOURCE_DIR}/include/jni/darwin/)
+elseif (WIN32)
+    set(JNI_MD ${PROJECT_SOURCE_DIR}/include/jni/mingw/)
 endif ()
 
 include_directories(
@@ -19,6 +21,8 @@ add_library(
         ${PROJECT_SOURCE_DIR}/moe_lemonneko_nekogit_cmds_CloneCommand.c
 )
 
-if (CMAKE_HOST_APPLE)
+if (APPLE)
     target_link_libraries(git2java ${PROJECT_SOURCE_DIR}/lib/libgit2.1.0.1.dylib)
+elseif (WIN32)
+    target_link_libraries(git2java ${PROJECT_SOURCE_DIR}/lib/libgit2.dll)
 endif ()
