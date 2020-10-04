@@ -15,6 +15,7 @@ typedef struct {
 
 static JavaVM *global_vm;
 static jobject global_on_progress;
+static jobject global_on_error;
 
 static void print_progress(const progress_data *pd) {
     unsigned int index_percent = pd->fetch_progress.total_objects > 0 ?
@@ -69,7 +70,8 @@ JNIEXPORT jint JNICALL Java_moe_lemonneko_nekogit_cmds_CloneCommand_doClone(
         jobject clone_command,
         jstring url,
         jstring path,
-        jobject on_progress) {
+        jobject on_progress,
+        jobject on_error) {
     if (CLONE_DEBUG) {
         printf("===========================\n");
         printf("c-end: calling c from java.\n\n");
@@ -82,6 +84,7 @@ JNIEXPORT jint JNICALL Java_moe_lemonneko_nekogit_cmds_CloneCommand_doClone(
     }
     (*env)->GetJavaVM(env, &global_vm);
     global_on_progress = (*env)->NewGlobalRef(env, on_progress);
+    global_on_error = (*env)->NewGlobalRef(env, on_error);
 
     progress_data pd = {{0}};
     git_repository *cloned_repo = NULL;
@@ -112,10 +115,23 @@ JNIEXPORT jint JNICALL Java_moe_lemonneko_nekogit_cmds_CloneCommand_doClone(
 
     if (error != 0) {
         const git_error *err = git_error_last();
-        if (err) {
+        if (err && CLONE_DEBUG) {
             printf("c-end: error code %d: %s\n", err->klass, err->message);
         } else {
             printf("c-end: error code %d: no detailed info\n", error);
+        }
+        if (err) {
+            jclass class_clone_exception = (*env)->FindClass(env, "moe/lemonneko/nekogit/exceptions/CloneException");
+            jmethodID constructor_clone_exception = (*env)->GetMethodID(env, class_clone_exception, "<init>", "(Ljava/lang/String;)V");
+
+            jstring arg_message = (*env)->NewStringUTF(env, err->message);
+            jobject clone_exception = (*env)->NewObject(env, class_clone_exception, constructor_clone_exception, arg_message);
+
+            jclass class_on_error_listener = (*env)->GetObjectClass(env, global_on_error);
+            jmethodID method_on_error = (*env)->GetMethodID(env, class_on_error_listener, "onError", "(Ljava/lang/Exception;)V");
+            (*env)->CallVoidMethod(env, global_on_error, method_on_error, clone_exception);
+
+            (*env)->DeleteLocalRef(env, clone_exception);
         }
     } else if (cloned_repo)
         printf("c-end: freeing repository...\n");
@@ -130,6 +146,7 @@ JNIEXPORT jint JNICALL Java_moe_lemonneko_nekogit_cmds_CloneCommand_doClone(
     if (CLONE_DEBUG) {
         printf("c-end: deleting global refs...\n");
     }
+    (*env)->DeleteGlobalRef(env, global_on_progress);
     (*env)->DeleteGlobalRef(env, global_on_progress);
 
     return error;

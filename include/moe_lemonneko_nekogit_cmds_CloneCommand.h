@@ -10,10 +10,10 @@ extern "C" {
 /*
  * Class:     moe_lemonneko_nekogit_cmds_CloneCommand
  * Method:    doClone
- * Signature: (Ljava/lang/String;Ljava/lang/String;Lmoe/lemonneko/nekogit/cmds/CloneCommand/OnProgressListener;)I
+ * Signature: (Ljava/lang/String;Ljava/lang/String;Lmoe/lemonneko/nekogit/cmds/CloneCommand/OnProgressListener;Lmoe/lemonneko/nekogit/cmds/Command/OnErrorListener;)I
  */
 JNIEXPORT jint JNICALL Java_moe_lemonneko_nekogit_cmds_CloneCommand_doClone
-        (JNIEnv *, jobject, jstring, jstring, jobject);
+  (JNIEnv *, jobject, jstring, jstring, jobject, jobject);
 
 #ifdef __cplusplus
 }
