@@ -17,6 +17,19 @@ static JavaVM *global_vm;
 static jobject global_on_progress;
 static jobject global_on_error;
 
+static void call_on_progress(unsigned int progress) {
+    JNIEnv *env;
+    int status = (*global_vm)->GetEnv(global_vm, (void **) &env, JNI_VERSION_10);
+    if (status != JNI_OK) {
+        (*global_vm)->AttachCurrentThread(global_vm, (void **) &env, NULL);
+    }
+    jclass cls_on_progress_listener = (*env)->GetObjectClass(env, global_on_progress);
+    jmethodID method_on_progress = (*env)->GetMethodID(env, cls_on_progress_listener, "onProgress", "(I)V");
+
+    (*env)->CallVoidMethod(env, global_on_progress, method_on_progress, progress);
+    (*global_vm)->DetachCurrentThread(global_vm);
+}
+
 static void print_progress(const progress_data *pd) {
     unsigned int index_percent = pd->fetch_progress.total_objects > 0 ?
                                  (100 * pd->fetch_progress.indexed_objects) / pd->fetch_progress.total_objects :
@@ -28,18 +41,11 @@ static void print_progress(const progress_data *pd) {
                pd->fetch_progress.indexed_deltas,
                pd->fetch_progress.total_deltas);
     } else {
-        printf("c-end: progress %u%%\n", index_percent);
+        if (CLONE_DEBUG) {
+            printf("c-end: progress %u%%\n", index_percent);
+        }
         if (global_vm) {
-            JNIEnv *env;
-            int status = (*global_vm)->GetEnv(global_vm, (void **) &env, JNI_VERSION_10);
-            if (status != JNI_OK) {
-                (*global_vm)->AttachCurrentThread(global_vm, (void **) &env, NULL);
-            }
-            jclass cls_on_progress_listener = (*env)->GetObjectClass(env, global_on_progress);
-            jmethodID method_on_progress = (*env)->GetMethodID(env, cls_on_progress_listener, "onProgress", "(I)V");
-
-            (*env)->CallVoidMethod(env, global_on_progress, method_on_progress, index_percent);
-            (*global_vm)->DetachCurrentThread(global_vm);
+            call_on_progress(index_percent);
         }
     }
 }
@@ -122,19 +128,25 @@ JNIEXPORT jint JNICALL Java_moe_lemonneko_nekogit_cmds_CloneCommand_doClone(
         }
         if (err) {
             jclass class_clone_exception = (*env)->FindClass(env, "moe/lemonneko/nekogit/exceptions/CloneException");
-            jmethodID constructor_clone_exception = (*env)->GetMethodID(env, class_clone_exception, "<init>", "(Ljava/lang/String;)V");
+            jmethodID constructor_clone_exception = (*env)->GetMethodID(env, class_clone_exception, "<init>",
+                                                                        "(Ljava/lang/String;)V");
 
             jstring arg_message = (*env)->NewStringUTF(env, err->message);
-            jobject clone_exception = (*env)->NewObject(env, class_clone_exception, constructor_clone_exception, arg_message);
+            jobject clone_exception = (*env)->NewObject(env, class_clone_exception, constructor_clone_exception,
+                                                        arg_message);
 
             jclass class_on_error_listener = (*env)->GetObjectClass(env, global_on_error);
-            jmethodID method_on_error = (*env)->GetMethodID(env, class_on_error_listener, "onError", "(Ljava/lang/Exception;)V");
+            jmethodID method_on_error = (*env)->GetMethodID(env, class_on_error_listener, "onError",
+                                                            "(Ljava/lang/Exception;)V");
             (*env)->CallVoidMethod(env, global_on_error, method_on_error, clone_exception);
 
             (*env)->DeleteLocalRef(env, clone_exception);
         }
-    } else if (cloned_repo)
+    } else if (cloned_repo) {
         printf("c-end: freeing repository...\n");
+        call_on_progress(100);
+    }
+
     git_repository_free(cloned_repo);
 
     if (CLONE_DEBUG) {
@@ -147,7 +159,7 @@ JNIEXPORT jint JNICALL Java_moe_lemonneko_nekogit_cmds_CloneCommand_doClone(
         printf("c-end: deleting global refs...\n");
     }
     (*env)->DeleteGlobalRef(env, global_on_progress);
-    (*env)->DeleteGlobalRef(env, global_on_progress);
+    (*env)->DeleteGlobalRef(env, global_on_error);
 
     return error;
 }
