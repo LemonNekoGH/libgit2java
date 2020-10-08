@@ -128,24 +128,11 @@ JNIEXPORT void JNICALL Java_moe_lemonneko_nekogit_cmds_GitClone_doClone(
         const git_error *err = git_error_last();
 
         if (err) {
-            jclass class_clone_exception = (*env)->FindClass(env, "moe/lemonneko/nekogit/exceptions/CloneException");
-            jmethodID constructor_clone_exception = (*env)->GetMethodID(env, class_clone_exception, "<init>",
-                                                                        "(Ljava/lang/String;)V");
-
-            jstring arg_message = (*env)->NewStringUTF(env, err->message);
-            jobject clone_exception = (*env)->NewObject(env, class_clone_exception, constructor_clone_exception,
-                                                        arg_message);
-
-            jclass class_on_error_listener = (*env)->GetObjectClass(env, global_handle_error);
-            jmethodID method_on_error = (*env)->GetMethodID(env, class_on_error_listener, "onError",
-                                                            "(Ljava/lang/Exception;)V");
-            (*env)->CallVoidMethod(env, global_handle_error, method_on_error, clone_exception);
+            call_handle_error(err->message);
         }
     } else if (cloned_repo) {
-
+        git_repository_free(cloned_repo);
     }
-
-    git_repository_free(cloned_repo);
 
     git_libgit2_shutdown();
 
