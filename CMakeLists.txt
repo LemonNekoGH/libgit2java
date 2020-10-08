@@ -20,13 +20,24 @@ include_directories(
 
 add_library(
         git2java SHARED
-        ${PROJECT_SOURCE_DIR}/moe_lemonneko_nekogit_cmds_CloneCommand.c
+        ${PROJECT_SOURCE_DIR}/libgit2java.c
+        ${PROJECT_SOURCE_DIR}/moe_lemonneko_nekogit_cmds_GitClone.c
+)
+
+add_executable(
+        clone_test
+        ${PROJECT_SOURCE_DIR}/libgit2java.c
+        ${PROJECT_SOURCE_DIR}/moe_lemonneko_nekogit_cmds_GitClone.c
+        ${PROJECT_SOURCE_DIR}/clone_test.c
 )
 
 if (APPLE)
-    target_link_libraries(git2java ${PROJECT_SOURCE_DIR}/lib/libgit2.1.0.1.dylib)
+    target_link_libraries(clone_test ${PROJECT_SOURCE_DIR}/lib/libgit2.1.0.dylib)
+    target_link_libraries(git2java ${PROJECT_SOURCE_DIR}/lib/libgit2.1.0.dylib)
 elseif (WIN32)
+    target_link_libraries(clone_test ${PROJECT_SOURCE_DIR}/lib/libgit2.dll)
     target_link_libraries(git2java ${PROJECT_SOURCE_DIR}/lib/libgit2.dll)
 elseif (UNIX)
+    target_link_libraries(clone_test ${PROJECT_SOURCE_DIR}/lib/libgit2.so)
     target_link_libraries(git2java ${PROJECT_SOURCE_DIR}/lib/libgit2.so)
 endif ()
